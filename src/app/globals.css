@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* -------------------------------
+   BREATE GLOBAL THEME
+---------------------------------- */
+
+:root {
+  --breate-maroon: #550000;
+  --breate-gold: #ffd700;
+  --text-light: #ffffff;
+}
+
+/* Universal page styling */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  color: var(--text-light);
+  background: linear-gradient(135deg, var(--breate-maroon) 0%, var(--breate-gold) 100%);
+  font-family: "Didone", serif;
+  overflow-x: hidden;
+}
+
+/* Text glow / visual polish */
+h1 {
+  text-shadow: 0 2px 10px rgba(255, 255, 255, 0.15);
+}
+
+p {
+  opacity: 0.9;
+  letter-spacing: 0.5px;
+}
+
+/* Make sure everything scales nicely */
+* {
+  box-sizing: border-box;
+}
+
+/* Smooth transitions */
+body,
+button,
+a {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Optional utility for future buttons or hover effects */
+.glow {
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.7);
+}
+
+
+
+
+
+
