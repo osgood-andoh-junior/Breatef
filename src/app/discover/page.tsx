@@ -33,7 +33,9 @@ const PeerCard: React.FC<{ peer: Peer }> = ({ peer }) => (
         {peer.username.charAt(0).toUpperCase()}
       </div>
       <div>
-        <h3 className="text-xl font-extrabold text-[#fff3d2]">{peer.username}</h3>
+        <h3 className="text-xl font-extrabold text-[#fff3d2]">
+          {peer.username}
+        </h3>
         <p className="text-sm text-[#ffe9b8]/75 font-semibold">
           {peer.archetype || "N/A"} • {peer.tier || "N/A"} Tier
         </p>
@@ -74,7 +76,7 @@ const PeerDirectory: React.FC = () => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  // Fetch filters (typed to avoid "unknown" issues)
+  // Fetch filters
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
@@ -101,14 +103,18 @@ const PeerDirectory: React.FC = () => {
     try {
       const params = new URLSearchParams();
       if (currentFilters.search) params.append("username", currentFilters.search);
-      if (currentFilters.archetypeId) params.append("archetype_id", currentFilters.archetypeId);
-      if (currentFilters.tierId) params.append("tier_id", currentFilters.tierId);
+      if (currentFilters.archetypeId)
+        params.append("archetype_id", currentFilters.archetypeId);
+      if (currentFilters.tierId)
+        params.append("tier_id", currentFilters.tierId);
 
       const endpoint = params.toString()
         ? `/discover/users?${params.toString()}`
         : `/discover/users`;
 
-      const data = await apiClient.get<Peer[]>(endpoint, { requireAuth: false });
+      const data = await apiClient.get<Peer[]>(endpoint, {
+        requireAuth: false,
+      });
       setPeers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("❌ Discover fetch failed:", err);
@@ -118,7 +124,7 @@ const PeerDirectory: React.FC = () => {
     }
   }, []);
 
-  // Fetch all users on mount (no eslint-disable needed)
+  // Initial fetch
   useEffect(() => {
     fetchResults({
       archetypeId: "",
@@ -127,7 +133,7 @@ const PeerDirectory: React.FC = () => {
     });
   }, [fetchResults]);
 
-  // Update results when filters change (debounced)
+  // Update results when filters change
   useEffect(() => {
     const timeout = setTimeout(() => fetchResults(filters), 400);
     return () => clearTimeout(timeout);
@@ -223,4 +229,3 @@ const PeerDirectory: React.FC = () => {
 };
 
 export default PeerDirectory;
-
