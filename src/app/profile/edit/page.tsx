@@ -4,7 +4,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeft, Save, UserRound, Sparkles, Eye, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  UserRound,
+  Sparkles,
+  Eye,
+  CheckCircle2,
+} from "lucide-react";
 
 type ProfileData = {
   full_name?: string | null;
@@ -217,7 +224,6 @@ export default function EditProfilePage() {
     );
   }
 
-  const isSuccess = status.includes("✅");
   const isError = status.includes("❌");
 
   const inputClass =
