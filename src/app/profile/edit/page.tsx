@@ -431,6 +431,13 @@ export default function EditProfilePage() {
                     }
                   />
                   <PreviewField
+                    label="Portfolio Links"
+                    value={
+                      form.portfolio_links ||
+                      "Links to your work (GitHub, Drive, Behance, etc.)."
+                    }
+                  />
+                  <PreviewField
                     label="Next Build"
                     value={form.next_build || "What you want to build next."}
                   />
