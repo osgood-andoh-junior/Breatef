@@ -23,16 +23,16 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const username = currentUser?.username;
-
+  // Profile tab: only when logged in and currentUser is loaded with a real username.
+  // Never use "guest" or any placeholder. If auth not loaded yet, Profile tab is hidden.
   const tabs = [
     { name: "Home", href: "/", emoji: "🏠" },
     { name: "Collab Hub", href: "/collabhub", emoji: "💼" },
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    ...(username
-      ? [{ name: "Profile", href: `/profile/${username}`, emoji: "👤" }]
+    ...(isLoggedIn && currentUser?.username
+      ? [{ name: "Profile", href: `/profile/${currentUser.username}`, emoji: "👤" }]
       : []),
   ];
 

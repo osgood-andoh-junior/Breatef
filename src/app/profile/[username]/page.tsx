@@ -17,6 +17,8 @@ type ProfileData = {
   affiliations?: string | null;
   archetype_id?: number | null;
   tier_id?: number | null;
+  archetype?: string | null;
+  tier?: string | null;
 };
 
 function PreviewField({ label, value }: { label: string; value: string }) {
@@ -85,15 +87,44 @@ export default function ProfilePage() {
         if (!cancelled) setProfile(data);
       } catch (err: unknown) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "Unknown error";
 
-        // If viewing own profile, gracefully fall back to whatever we already have in AuthContext.
+        // If viewing own profile, fall back to AuthContext data.
         if (isOwnProfile && fallbackFromAuth) {
           setProfile(fallbackFromAuth);
           setError("");
           return;
         }
 
+        // Fallback: try discover API to show at least basic info (username, archetype, tier, bio).
+        try {
+          const discoverData = await apiClient.get<
+            { id: number; username: string; archetype: string | null; tier: string | null; bio: string | null }[]
+          >(`/discover/users?username=${encodeURIComponent(urlUsername)}`, {
+            requireAuth: false,
+          });
+          const peer = Array.isArray(discoverData) ? discoverData.find((p) => p.username === urlUsername) ?? discoverData[0] : null;
+          if (!cancelled && peer) {
+            setProfile({
+              username: peer.username,
+              full_name: null,
+              bio: peer.bio ?? null,
+              preferred_themes: null,
+              portfolio_links: null,
+              next_build: null,
+              affiliations: null,
+              archetype_id: null,
+              tier_id: null,
+              archetype: peer.archetype ?? null,
+              tier: peer.tier ?? null,
+            });
+            setError("");
+            return;
+          }
+        } catch {
+          // Ignore discover fallback failure
+        }
+
+        const msg = err instanceof Error ? err.message : "Unknown error";
         setError(`Failed to load profile: ${msg}`);
         setProfile(null);
       } finally {
@@ -180,6 +211,12 @@ export default function ProfilePage() {
 
         <div className="rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
           <div className="space-y-5">
+            {(displayProfile.archetype || displayProfile.tier) && (
+              <PreviewField
+                label="Role / Tier"
+                value={[displayProfile.archetype, displayProfile.tier].filter(Boolean).join(" • ") || "—"}
+              />
+            )}
             <PreviewField
               label="Full Name"
               value={displayProfile.full_name || "—"}
