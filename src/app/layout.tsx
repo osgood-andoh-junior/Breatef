@@ -10,7 +10,7 @@ import { usePathname } from "next/navigation";
 
 function SidebarContent({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
-  const { currentUser, isLoggedIn, logout } = useAuth();
+  const { currentUser, isLoggedIn, logout, loading } = useAuth();
   const pathname = usePathname();
 
   useEffect(() => {
@@ -23,7 +23,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const username = currentUser?.username || "guest";
+  const username = currentUser?.username;
 
   const tabs = [
     { name: "Home", href: "/", emoji: "🏠" },
@@ -31,10 +31,23 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    { name: "Profile", href: `/profile/${username}`, emoji: "👤" },
+    ...(username
+      ? [{ name: "Profile", href: `/profile/${username}`, emoji: "👤" }]
+      : []),
   ];
 
   const isHome = pathname === "/";
+
+  if (loading) {
+    return (
+      <div className="relative h-screen w-full overflow-hidden">
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(135deg,#5a2a12_0%,#c08a00_55%,#ffd700_100%)]" />
+        <main className="h-screen flex items-center justify-center px-6 py-8">
+          <div className="text-[#fff3d2]/85">Loading...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-screen w-full overflow-hidden">
