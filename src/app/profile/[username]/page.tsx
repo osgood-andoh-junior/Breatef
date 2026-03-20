@@ -1,217 +1,172 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/lib/api-client";
+import { UserRound } from "lucide-react";
 
 type ProfileData = {
-  id?: number;
-  email?: string;
-  username?: string;
-  full_name?: string;
-  bio?: string;
-  preferred_themes?: string;
-  portfolio_links?: string;
-  next_build?: string;
-  affiliations?: string;
+  full_name?: string | null;
+  username?: string | null;
+  bio?: string | null;
+  preferred_themes?: string | null;
+  portfolio_links?: string | null;
+  next_build?: string | null;
+  affiliations?: string | null;
 };
 
-export default function EditProfilePage() {
-  const router = useRouter();
-  const { currentUser, isLoggedIn } = useAuth();
+export default function ProfilePage() {
+  const params = useParams();
+  const { currentUser } = useAuth();
 
-  const profileUsername = currentUser?.username;
+  const urlUsername = useMemo(() => {
+    const raw = (params as { username?: string | string[] })?.username;
+    return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  }, [params]);
 
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>("");
-
-  const [form, setForm] = useState<Required<Omit<ProfileData, "id" | "email">>>({
-    full_name: "",
-    username: "",
-    bio: "",
-    preferred_themes: "",
-    portfolio_links: "",
-    next_build: "",
-    affiliations: "",
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
     const loadProfile = async () => {
-      if (!isLoggedIn || !profileUsername) {
+      if (!urlUsername) {
+        setError("Missing profile username.");
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-
-        const data = await apiClient.get<ProfileData>(
-          `/profile/${profileUsername}`,
-          { requireAuth: true }
-        );
-
-        setForm({
-          full_name: data.full_name ?? "",
-          username: data.username ?? profileUsername,
-          bio: data.bio ?? "",
-          preferred_themes: data.preferred_themes ?? "",
-          portfolio_links: data.portfolio_links ?? "",
-          next_build: data.next_build ?? "",
-          affiliations: data.affiliations ?? "",
+        setError("");
+        // Public profile: do not require auth to view.
+        const data = await apiClient.get<ProfileData>(`/profile/${urlUsername}`, {
+          requireAuth: false,
         });
+        setProfile(data);
       } catch (err: unknown) {
-        console.error("Failed to load profile:", err);
-
-        if (
-          err instanceof Error &&
-          err.message.toLowerCase().includes("unauthorized")
-        ) {
-          router.push("/login");
-        }
+        const msg = err instanceof Error ? err.message : "Unknown error";
+        setError(`Failed to load profile: ${msg}`);
+        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
     loadProfile();
-  }, [isLoggedIn, profileUsername, router]);
+  }, [urlUsername]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  const isOwnProfile = Boolean(
+    currentUser?.username && urlUsername && currentUser.username === urlUsername
+  );
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSaving(true);
-    setMessage("");
+  const displayName =
+    profile?.full_name || profile?.username || urlUsername || "Unknown";
+  const initial = displayName.charAt(0).toUpperCase();
 
-    try {
-      // 👇 Explicit generic so Vercel never treats it as unknown
-      await apiClient.put<ProfileData>(
-        `/profile/edit`,
-        form,
-        { requireAuth: true }
-      );
-
-      setMessage("✅ Profile updated!");
-
-      setTimeout(() => {
-        router.push(`/profile/${form.username || profileUsername}`);
-        router.refresh();
-      }, 700);
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setMessage(`❌ ${err.message}`);
-      } else {
-        setMessage("❌ Update failed");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!isLoggedIn) {
+  if (loading) {
     return (
-      <div className="max-w-2xl mx-auto p-6 text-center text-[#550000]">
-        Please log in to edit your profile.
+      <div className="min-h-screen px-6 py-10">
+        <div className="mx-auto w-full max-w-3xl text-center text-[#fff3d2]/85">
+          Loading profile...
+        </div>
       </div>
     );
   }
 
-  if (loading) {
+  if (error || !profile) {
     return (
-      <div className="max-w-2xl mx-auto p-6 text-center text-[#550000]">
-        Loading profile...
+      <div className="min-h-screen px-6 py-10">
+        <div className="mx-auto w-full max-w-3xl rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 text-[#ffe9b8]/75 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
+          <div className="flex items-center gap-3">
+            <UserRound className="h-5 w-5 text-[#FFD700]" />
+            <p className="font-semibold">Could not load this profile.</p>
+          </div>
+          {error ? <p className="mt-3 text-sm">{error}</p> : null}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-lg shadow-lg p-8 border border-[#550000]/20 space-y-4"
-      >
-        <h1 className="text-3xl font-bold text-[#550000] text-center">
-          Edit Profile
-        </h1>
+    <div className="min-h-screen px-6 py-10">
+      <div className="mx-auto w-full max-w-5xl">
+        <header className="mb-6 rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.22)] backdrop-blur-md">
+          <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-[#FFD700] text-[#2b0b0b] font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-[#FFD700]/20">
+                {initial}
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-3xl font-black text-[#fff3d2] truncate">
+                  {profile.full_name || "Unnamed Creator"}
+                </h1>
+                <p className="text-sm text-[#ffe9b8]/75 truncate">
+                  @{profile.username || urlUsername}
+                </p>
+              </div>
+            </div>
 
-        <input
-          name="full_name"
-          value={form.full_name}
-          onChange={handleChange}
-          placeholder="Full name"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
+            {isOwnProfile ? (
+              <Link
+                href="/profile/edit"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#FFD700]/30 bg-[#120606]/30 px-5 py-2.5 font-semibold text-[#fff3d2]/90 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur transition hover:bg-[#120606]/45 hover:border-[#FFD700]/45"
+              >
+                Edit Profile
+              </Link>
+            ) : null}
+          </div>
+        </header>
 
-        <input
-          name="username"
-          value={form.username}
-          onChange={handleChange}
-          placeholder="Username"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
+        <div className="rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
+          <div className="space-y-5">
+            <PreviewField
+              label="Bio"
+              value={profile.bio || "No bio available."}
+            />
+            <PreviewField
+              label="Preferred Project Themes"
+              value={
+                profile.preferred_themes ||
+                "Themes you like to build around will appear here."
+              }
+            />
+            <PreviewField
+              label="Portfolio Links"
+              value={
+                profile.portfolio_links ||
+                "Links to your work (GitHub, Drive, Behance, etc.)"
+              }
+            />
+            <PreviewField
+              label="What I Want to Build Next"
+              value={profile.next_build || "No next build idea yet."}
+            />
+            <PreviewField
+              label="Coalitions / Affiliations"
+              value={
+                profile.affiliations ||
+                "Your groups, communities, or institutions."
+              }
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        <textarea
-          name="bio"
-          value={form.bio}
-          onChange={handleChange}
-          placeholder="Bio"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-          rows={4}
-        />
-
-        <input
-          name="preferred_themes"
-          value={form.preferred_themes}
-          onChange={handleChange}
-          placeholder="Preferred themes"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
-
-        <input
-          name="portfolio_links"
-          value={form.portfolio_links}
-          onChange={handleChange}
-          placeholder="Portfolio links"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
-
-        <input
-          name="next_build"
-          value={form.next_build}
-          onChange={handleChange}
-          placeholder="Next build"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
-
-        <input
-          name="affiliations"
-          value={form.affiliations}
-          onChange={handleChange}
-          placeholder="Affiliations"
-          className="w-full border border-[#550000]/40 p-2 rounded focus:ring-1 focus:ring-[#550000]"
-        />
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full bg-[#550000] text-white p-2 rounded hover:bg-[#770000] transition-all disabled:opacity-70"
-        >
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
-
-        {message && (
-          <p className="text-center mt-2 font-medium text-[#550000]/80">
-            {message}
-          </p>
-        )}
-      </form>
+function PreviewField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#ffe9b8]/55">
+        {label}
+      </p>
+      <p className="text-[#fff3d2]/88 leading-relaxed whitespace-pre-wrap">
+        {value}
+      </p>
     </div>
   );
 }

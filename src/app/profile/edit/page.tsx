@@ -36,7 +36,8 @@ type FormState = {
 export default function EditProfilePage() {
   const router = useRouter();
   const params = useParams();
-  const { currentUser, isLoggedIn, refreshUser } = useAuth();
+  const { currentUser, isLoggedIn, refreshUser, loading: authLoading } =
+    useAuth();
 
   const urlUsername = useMemo(() => {
     const raw = (params as { username?: string | string[] })?.username;
@@ -65,8 +66,10 @@ export default function EditProfilePage() {
   }, [urlUsername, currentUser?.username]);
 
   useEffect(() => {
+    // Prevent redirect while AuthContext is still hydrating from localStorage.
+    if (authLoading) return;
     if (isLoggedIn === false) router.push("/login");
-  }, [isLoggedIn, router]);
+  }, [isLoggedIn, authLoading, router]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -197,6 +200,14 @@ export default function EditProfilePage() {
     const profileUsername = urlUsername || currentUser?.username || "";
     router.push(`/profile/${profileUsername}`);
   };
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6">
+        <div className="text-center text-[#fff3d2]/85">Loading...</div>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
