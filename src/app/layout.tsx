@@ -15,12 +15,12 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
-  // ✅ FIXED: responsive handling (no flicker)
+  // Responsive sidebar
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      setCollapsed(mobile); // auto collapse on mobile
+      setCollapsed(mobile);
     };
 
     handleResize();
@@ -30,29 +30,21 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
 
   const profileUsername = currentUser?.username;
 
+  // ✅ Always show Profile tab
   const tabs = [
     { name: "Home", href: "/", emoji: "🏠" },
     { name: "Collab Hub", href: "/collabhub", emoji: "💼" },
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    ...(isLoggedIn && profileUsername
-      ? [{ name: "Profile", href: `/profile/${profileUsername}`, emoji: "👤" }]
-      : []),
+    { name: "Profile", href: "/profile", emoji: "👤" }, // Always show
   ];
 
   const isHome = pathname === "/";
 
-  const isOwnProfileSidebarPanel =
-    Boolean(isLoggedIn && profileUsername) &&
-    (pathname === "/profile" ||
-      pathname === "/profile/edit" ||
-      pathname === `/profile/${profileUsername}`);
-
   const PASSWORD_HASH_PLACEHOLDER =
     "$2b$12$••••••••••••••••••••••••••••••••••••••";
 
-  // ✅ Better loading UI (prevents flicker)
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#120606] text-[#fff3d2]">
@@ -87,14 +79,9 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
               className="rounded-lg shadow-lg"
             />
 
-            {!collapsed && (
-              <h1 className="ml-2 text-xl font-bold">Breate</h1>
-            )}
+            {!collapsed && <h1 className="ml-2 text-xl font-bold">Breate</h1>}
 
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="ml-auto text-xl"
-            >
+            <button onClick={() => setCollapsed(!collapsed)} className="ml-auto text-xl">
               {collapsed ? "›" : "‹"}
             </button>
           </div>
@@ -109,11 +96,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                   key={tab.name}
                   href={tab.href}
                   className={`flex items-center gap-3 px-2 py-2 rounded-lg transition
-                    ${
-                      active
-                        ? "bg-[#FFD700]/20 text-white"
-                        : "text-[#FFD700]/90 hover:text-white"
-                    }`}
+                    ${active ? "bg-[#FFD700]/20 text-white" : "text-[#FFD700]/90 hover:text-white"}`}
                 >
                   <span className="text-xl">{tab.emoji}</span>
                   {!collapsed && <span>{tab.name}</span>}
@@ -121,12 +104,10 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
               );
             })}
 
-            {/* Account Panel */}
-            {isOwnProfileSidebarPanel && !collapsed && currentUser && (
+            {/* Account Panel: only show if logged in */}
+            {isLoggedIn && !collapsed && currentUser && (
               <div className="mt-6 pt-4 border-t border-[#FFD700]/25 space-y-4">
-                <p className="text-xs uppercase text-[#FFD700]/70">
-                  Account
-                </p>
+                <p className="text-xs uppercase text-[#FFD700]/70">Account</p>
 
                 <div>
                   <div className="flex justify-between">
@@ -149,9 +130,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                     <span className="text-xs">Password</span>
                     <Link href="/profile/edit#account-password">Edit</Link>
                   </div>
-                  <p className="text-[10px] font-mono break-all">
-                    {PASSWORD_HASH_PLACEHOLDER}
-                  </p>
+                  <p className="text-[10px] font-mono break-all">{PASSWORD_HASH_PLACEHOLDER}</p>
                 </div>
               </div>
             )}
@@ -169,16 +148,13 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        <div className="text-xs text-[#FFD700]/60">
-          {!collapsed ? "breate • build real work" : "•"}
-        </div>
+        <div className="text-xs text-[#FFD700]/60">{!collapsed ? "breate • build real work" : "•"}</div>
       </aside>
 
       {/* Main */}
       <main
         className={[
           "h-screen overflow-x-hidden px-6 py-8 transition-all",
-          // ✅ FIXED: no margin shift on mobile
           !isMobile && (collapsed ? "ml-20" : "ml-64"),
           isHome ? "overflow-y-hidden" : "overflow-y-auto",
         ].join(" ")}
@@ -189,11 +165,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// RootLayout
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body className="h-screen overflow-hidden bg-transparent text-[#fff3d2] font-serif">
