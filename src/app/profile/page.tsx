@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -8,31 +8,31 @@ export default function ProfileIndexPage() {
   const router = useRouter();
   const { currentUser, isLoggedIn, loading } = useAuth();
 
-  // Prevent multiple redirects
-  const hasRedirected = useRef(false);
-
   useEffect(() => {
-    if (loading || hasRedirected.current) return;
+    // Wait until auth finishes loading
+    if (loading) return;
 
-    hasRedirected.current = true;
-
+    // Only redirect to login if NOT logged in
     if (!isLoggedIn) {
       router.replace("/login");
       return;
     }
 
+    // Redirect to username-specific profile if we have it
     if (currentUser?.username) {
       router.replace(`/profile/${currentUser.username}`);
-    } else {
-      // fallback safety (VERY IMPORTANT)
-      router.replace("/login");
     }
-  }, [loading, isLoggedIn, currentUser, router]);
+    // Optional: you can show a placeholder until username is ready
+  }, [loading, isLoggedIn, currentUser?.username, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6">
-      <div className="text-center text-[#fff3d2]/85 animate-pulse">
-        Redirecting to your profile...
+      <div className="text-center text-[#fff3d2]/85">
+        {loading
+          ? "Loading..."
+          : !currentUser?.username
+          ? "Preparing your profile..."
+          : "Redirecting..."}
       </div>
     </div>
   );
