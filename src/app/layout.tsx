@@ -28,22 +28,17 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const profileUsername = currentUser?.username;
-
-  // ✅ Always show Profile tab
+  // ✅ Always show Account tab
   const tabs = [
     { name: "Home", href: "/", emoji: "🏠" },
     { name: "Collab Hub", href: "/collabhub", emoji: "💼" },
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    { name: "Profile", href: "/profile", emoji: "👤" }, // Always show
+    { name: "Account", href: "/profile", emoji: "👤" }, // always visible
   ];
 
   const isHome = pathname === "/";
-
-  const PASSWORD_HASH_PLACEHOLDER =
-    "$2b$12$••••••••••••••••••••••••••••••••••••••";
 
   if (loading) {
     return (
@@ -78,10 +73,12 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
               height={collapsed ? 40 : 60}
               className="rounded-lg shadow-lg"
             />
-
             {!collapsed && <h1 className="ml-2 text-xl font-bold">Breate</h1>}
 
-            <button onClick={() => setCollapsed(!collapsed)} className="ml-auto text-xl">
+            <button
+              onClick={() => setCollapsed(!collapsed)}
+              className="ml-auto text-xl"
+            >
               {collapsed ? "›" : "‹"}
             </button>
           </div>
@@ -104,33 +101,42 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
               );
             })}
 
-            {/* Account Panel: only show if logged in */}
-            {isLoggedIn && !collapsed && currentUser && (
+            {/* Account Panel: username, email, password */}
+            {isLoggedIn && !collapsed && (
               <div className="mt-6 pt-4 border-t border-[#FFD700]/25 space-y-4">
                 <p className="text-xs uppercase text-[#FFD700]/70">Account</p>
 
+                {/* Username */}
                 <div>
                   <div className="flex justify-between">
                     <span className="text-xs">Username</span>
-                    <Link href="/profile/edit#account-username">Edit</Link>
+                    <Link href="/profile/edit#account-username" className="underline">
+                      Edit
+                    </Link>
                   </div>
-                  <p className="truncate">{currentUser.username}</p>
+                  <p className="truncate">{currentUser?.username || ""}</p>
                 </div>
 
+                {/* Email */}
                 <div>
                   <div className="flex justify-between">
                     <span className="text-xs">Email</span>
-                    <Link href="/profile/edit#account-email">Edit</Link>
+                    <Link href="/profile/edit#account-email" className="underline">
+                      Edit
+                    </Link>
                   </div>
-                  <p className="truncate">{currentUser.email}</p>
+                  <p className="truncate">{currentUser?.email || ""}</p>
                 </div>
 
+                {/* Password */}
                 <div>
                   <div className="flex justify-between">
                     <span className="text-xs">Password</span>
-                    <Link href="/profile/edit#account-password">Edit</Link>
+                    <Link href="/profile/edit#account-password" className="underline">
+                      Edit
+                    </Link>
                   </div>
-                  <p className="text-[10px] font-mono break-all">{PASSWORD_HASH_PLACEHOLDER}</p>
+                  <p className="truncate">••••••••</p> {/* no hash */}
                 </div>
               </div>
             )}
