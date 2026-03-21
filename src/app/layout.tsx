@@ -35,7 +35,7 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    { name: "Account", href: "/profile", emoji: "👤" }, // always visible
+    
   ];
 
   const isHome = pathname === "/";
