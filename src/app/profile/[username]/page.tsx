@@ -15,8 +15,6 @@ type ProfileData = {
   portfolio_links?: string | null;
   next_build?: string | null;
   affiliations?: string | null;
-  archetype_id?: number | null;
-  tier_id?: number | null;
   archetype?: string | null;
   tier?: string | null;
 };
@@ -27,7 +25,7 @@ function PreviewField({ label, value }: { label: string; value: string }) {
       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#ffe9b8]/55">
         {label}
       </p>
-      <p className="text-[#fff3d2]/88 leading-relaxed whitespace-pre-wrap break-words">
+      <p className="text-[#fff3d2]/88 whitespace-pre-wrap break-words">
         {value}
       </p>
     </div>
@@ -38,16 +36,19 @@ export default function ProfilePage() {
   const params = useParams();
   const { currentUser, isLoggedIn, loading: authLoading } = useAuth();
 
+  // ✅ SAFER username extraction
   const urlUsername = useMemo(() => {
     const raw = (params as { username?: string | string[] })?.username;
-    return typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : "";
+    if (!raw) return "";
+    return typeof raw === "string" ? raw : raw[0];
   }, [params]);
 
   const isOwnProfile =
-    Boolean(currentUser?.username) && currentUser?.username === urlUsername;
+    currentUser?.username && currentUser.username === urlUsername;
 
   const fallbackFromAuth: ProfileData | null = useMemo(() => {
-    if (!currentUser?.username || !isOwnProfile) return null;
+    if (!isOwnProfile || !currentUser) return null;
+
     return {
       full_name: currentUser.full_name ?? "",
       username: currentUser.username ?? urlUsername,
@@ -56,22 +57,20 @@ export default function ProfilePage() {
       portfolio_links: currentUser.portfolio_links ?? "",
       next_build: currentUser.next_build ?? "",
       affiliations: currentUser.affiliations ?? "",
-      archetype_id: currentUser.archetype_id ?? null,
-      tier_id: currentUser.tier_id ?? null,
     };
   }, [currentUser, isOwnProfile, urlUsername]);
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const [profile, setProfile] = useState<ProfileData | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadProfile = async () => {
+      // 🚨 critical guard
       if (!urlUsername) {
-        setError("Missing profile username.");
-        setProfile(null);
+        setError("Invalid profile URL.");
         setLoading(false);
         return;
       }
@@ -80,100 +79,61 @@ export default function ProfilePage() {
       setError("");
 
       try {
-        // Public view: do not require auth for reading another creator.
-        const data = await apiClient.get<ProfileData>(`/profile/${urlUsername}`, {
-          requireAuth: false,
-        });
-        if (!cancelled) setProfile(data);
-      } catch (err: unknown) {
-        if (cancelled) return;
+        const data = await apiClient.get<ProfileData>(
+          `/profile/${urlUsername}`,
+          { requireAuth: false }
+        );
 
-        // If viewing own profile, fall back to AuthContext data.
+        if (!cancelled) {
+          setProfile(data);
+        }
+      } catch (err) {
+        console.log("❌ API failed:", err);
+
+        // ✅ fallback to auth (own profile only)
         if (isOwnProfile && fallbackFromAuth) {
           setProfile(fallbackFromAuth);
           setError("");
-          return;
+        } else {
+          setError("Profile not found.");
+          setProfile(null);
         }
-
-        // Fallback: try discover API to show at least basic info (username, archetype, tier, bio).
-        try {
-          const discoverData = await apiClient.get<
-            { id: number; username: string; archetype: string | null; tier: string | null; bio: string | null }[]
-          >(`/discover/users?username=${encodeURIComponent(urlUsername)}`, {
-            requireAuth: false,
-          });
-          const peer = Array.isArray(discoverData) ? discoverData.find((p) => p.username === urlUsername) ?? discoverData[0] : null;
-          if (!cancelled && peer) {
-            setProfile({
-              username: peer.username,
-              full_name: null,
-              bio: peer.bio ?? null,
-              preferred_themes: null,
-              portfolio_links: null,
-              next_build: null,
-              affiliations: null,
-              archetype_id: null,
-              tier_id: null,
-              archetype: peer.archetype ?? null,
-              tier: peer.tier ?? null,
-            });
-            setError("");
-            return;
-          }
-        } catch {
-          // Ignore discover fallback failure
-        }
-
-        const msg = err instanceof Error ? err.message : "Unknown error";
-        setError(`Failed to load profile: ${msg}`);
-        setProfile(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
     loadProfile();
+
     return () => {
       cancelled = true;
     };
   }, [urlUsername, isOwnProfile, fallbackFromAuth]);
 
   const displayProfile = profile ?? fallbackFromAuth;
+
   const initial =
-    (displayProfile?.full_name || displayProfile?.username || urlUsername || "?")
-      .charAt(0)
-      .toUpperCase();
+    (displayProfile?.full_name ||
+      displayProfile?.username ||
+      urlUsername ||
+      "?")[0].toUpperCase();
 
-  if (authLoading) {
+  // ✅ GLOBAL LOADING
+  if (authLoading || loading) {
     return (
-      <div className="min-h-screen px-6 py-10">
-        <div className="mx-auto w-full max-w-5xl text-center text-[#fff3d2]/85">
-          Loading...
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-[#fff3d2]/80">Loading profile...</p>
       </div>
     );
   }
 
-  // If user isn't logged in, allow viewing other creators; only editing is blocked.
-  if (loading) {
+  // ❌ ERROR STATE
+  if (!displayProfile) {
     return (
-      <div className="min-h-screen px-6 py-10">
-        <div className="mx-auto w-full max-w-3xl text-center text-[#fff3d2]/85">
-          Loading profile...
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !displayProfile) {
-    return (
-      <div className="min-h-screen px-6 py-10">
-        <div className="mx-auto w-full max-w-3xl rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 text-[#ffe9b8]/75 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <UserRound className="h-5 w-5 text-[#FFD700]" />
-            <p className="font-semibold">Could not load this profile.</p>
-          </div>
-          {error ? <p className="mt-3 text-sm">{error}</p> : null}
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center text-red-400">
+          <p>Profile could not be loaded.</p>
+          {error && <p className="text-sm mt-2">{error}</p>}
         </div>
       </div>
     );
@@ -181,83 +141,45 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen px-6 py-10">
-      <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-6 rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.22)] backdrop-blur-md">
-          <div className="flex items-start justify-between gap-4 flex-col sm:flex-row sm:items-center">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-[#FFD700] text-[#2b0b0b] font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-[#FFD700]/20">
-                {initial}
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-3xl font-black text-[#fff3d2] truncate">
-                  {displayProfile.full_name || "Unnamed Creator"}
-                </h1>
-                <p className="text-sm text-[#ffe9b8]/75 truncate">
-                  @{displayProfile.username || urlUsername}
-                </p>
-              </div>
+      <div className="max-w-5xl mx-auto space-y-6">
+
+        {/* HEADER */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 bg-yellow-500 text-black flex items-center justify-center rounded-xl font-bold">
+              {initial}
             </div>
 
-            {isOwnProfile && isLoggedIn ? (
-              <Link
-                href="/profile/edit"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#FFD700]/30 bg-[#120606]/30 px-5 py-2.5 font-semibold text-[#fff3d2]/90 shadow-[0_10px_30px_rgba(0,0,0,0.22)] backdrop-blur transition hover:bg-[#120606]/45 hover:border-[#FFD700]/45"
-              >
-                Edit Profile
-              </Link>
-            ) : null}
+            <div>
+              <h1 className="text-2xl font-bold text-white">
+                {displayProfile.full_name || "Unnamed"}
+              </h1>
+              <p className="text-gray-400">
+                @{displayProfile.username || urlUsername}
+              </p>
+            </div>
           </div>
-        </header>
 
-        <div className="rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
-          <div className="space-y-5">
-            {(displayProfile.archetype || displayProfile.tier) && (
-              <PreviewField
-                label="Role / Tier"
-                value={[displayProfile.archetype, displayProfile.tier].filter(Boolean).join(" • ") || "—"}
-              />
-            )}
-            <PreviewField
-              label="Full Name"
-              value={displayProfile.full_name || "—"}
-            />
-            <PreviewField
-              label="Username"
-              value={`@${displayProfile.username || urlUsername}`}
-            />
-            <PreviewField
-              label="Bio"
-              value={displayProfile.bio || "No bio available."}
-            />
-            <PreviewField
-              label="Preferred Project Themes"
-              value={
-                displayProfile.preferred_themes ||
-                "Themes you like to build around will appear here."
-              }
-            />
-            <PreviewField
-              label="Portfolio Links"
-              value={
-                displayProfile.portfolio_links ||
-                "Links to your work (GitHub, Drive, Behance, etc.)"
-              }
-            />
-            <PreviewField
-              label="What I Want to Build Next"
-              value={displayProfile.next_build || "No next build idea yet."}
-            />
-            <PreviewField
-              label="Coalitions / Affiliations"
-              value={
-                displayProfile.affiliations ||
-                "Your groups, communities, or institutions."
-              }
-            />
-          </div>
+          {/* EDIT BUTTON */}
+          {isOwnProfile && isLoggedIn && (
+            <Link
+              href="/profile/edit"
+              className="px-4 py-2 border rounded"
+            >
+              Edit
+            </Link>
+          )}
+        </div>
+
+        {/* PROFILE DATA */}
+        <div className="space-y-4 text-white">
+          <PreviewField label="Bio" value={displayProfile.bio || "—"} />
+          <PreviewField label="Themes" value={displayProfile.preferred_themes || "—"} />
+          <PreviewField label="Portfolio" value={displayProfile.portfolio_links || "—"} />
+          <PreviewField label="Next Build" value={displayProfile.next_build || "—"} />
+          <PreviewField label="Affiliations" value={displayProfile.affiliations || "—"} />
         </div>
       </div>
     </div>
   );
 }
-
