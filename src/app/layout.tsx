@@ -23,6 +23,8 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  const profileUsername = currentUser?.username;
+
   // Profile tab: only when logged in and currentUser is loaded with a real username.
   // Never use "guest" or any placeholder. If auth not loaded yet, Profile tab is hidden.
   const tabs = [
@@ -31,12 +33,23 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
     { name: "Coalitions", href: "/coalitions", emoji: "🤝" },
     { name: "Collab Circle", href: "/collabcircle", emoji: "🌀" },
     { name: "Discover", href: "/discover", emoji: "🔍" },
-    ...(isLoggedIn && currentUser?.username
-      ? [{ name: "Profile", href: `/profile/${currentUser.username}`, emoji: "👤" }]
+    ...(isLoggedIn && profileUsername
+      ? [{ name: "Profile", href: `/profile/${profileUsername}`, emoji: "👤" }]
       : []),
   ];
 
   const isHome = pathname === "/";
+
+  /** Sidebar account strip: only on your own profile flow (not when viewing someone else). */
+  const isOwnProfileSidebarPanel =
+    Boolean(isLoggedIn && profileUsername) &&
+    (pathname === "/profile" ||
+      pathname === "/profile/edit" ||
+      pathname === `/profile/${profileUsername}`);
+
+  /** Cosmetic only — never a real password hash from the server (security). */
+  const PASSWORD_HASH_PLACEHOLDER =
+    "$2b$12$••••••••••••••••••••••••••••••••••••••";
 
   if (loading) {
     return (
@@ -98,6 +111,65 @@ function SidebarContent({ children }: { children: React.ReactNode }) {
                 {!collapsed && <span>{tab.name}</span>}
               </Link>
             ))}
+
+            {isOwnProfileSidebarPanel && !collapsed && currentUser && (
+              <div className="mt-8 pt-6 border-t border-[#FFD700]/25 space-y-4 text-left">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-[#FFD700]/70">
+                  Account (nav)
+                </p>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#FFD700]/80">Username</span>
+                    <Link
+                      href="/profile/edit#account-username"
+                      className="text-[11px] font-semibold text-white/90 hover:text-white underline underline-offset-2 shrink-0"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                  <p className="text-sm text-[#fff3d2] truncate" title={currentUser.username}>
+                    {currentUser.username}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#FFD700]/80">Email</span>
+                    <Link
+                      href="/profile/edit#account-email"
+                      className="text-[11px] font-semibold text-white/90 hover:text-white underline underline-offset-2 shrink-0"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                  <p className="text-sm text-[#fff3d2] truncate" title={currentUser.email}>
+                    {currentUser.email}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-[#FFD700]/80">Password (hash)</span>
+                    <Link
+                      href="/profile/edit#account-password"
+                      className="text-[11px] font-semibold text-white/90 hover:text-white underline underline-offset-2 shrink-0"
+                    >
+                      Edit
+                    </Link>
+                  </div>
+                  <p
+                    className="text-[10px] font-mono text-[#ffe9b8]/80 break-all leading-snug"
+                    title="Placeholder only — your real hash is never sent to the browser"
+                  >
+                    {PASSWORD_HASH_PLACEHOLDER}
+                  </p>
+                  <p className="text-[9px] text-[#FFD700]/50 leading-tight">
+                    Placeholder only. Real hashes stay on the server.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {isLoggedIn && !collapsed && (
               <button

@@ -5,6 +5,10 @@ import { useRouter, useParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/contexts/AuthContext";
 
+/** Cosmetic only — never a real server hash (passwords are not exposed to the client). */
+const PASSWORD_HASH_PLACEHOLDER =
+  "$2b$12$••••••••••••••••••••••••••••••••••••••";
+
 type ProfileData = {
   full_name?: string | null;
   username?: string | null;
@@ -33,6 +37,13 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
+  const [accountMsg, setAccountMsg] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
+  const [pwdCurrent, setPwdCurrent] = useState("");
+  const [pwdNew, setPwdNew] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
 
   const [form, setForm] = useState({
     full_name: "",
@@ -43,6 +54,21 @@ export default function EditProfilePage() {
     next_build: "",
     affiliations: "",
   });
+
+  useEffect(() => {
+    if (currentUser?.email) setAccountEmail(currentUser.email);
+  }, [currentUser?.email]);
+
+  /** Scroll to #account-* when opened from sidebar “Edit” links */
+  useEffect(() => {
+    if (authLoading || loading) return;
+    const id = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "") : "";
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [authLoading, loading]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -114,6 +140,62 @@ export default function EditProfilePage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleSaveEmail = async () => {
+    setAccountMsg("");
+    setSavingEmail(true);
+    try {
+      await apiClient.put(`/users/me`, { email: accountEmail }, { requireAuth: true });
+      await refreshUser();
+      setAccountMsg("✅ Email updated.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not update email";
+      setAccountMsg(`❌ ${msg}`);
+    } finally {
+      setSavingEmail(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAccountMsg("");
+    if (pwdNew !== pwdConfirm) {
+      setAccountMsg("❌ New password and confirmation do not match.");
+      return;
+    }
+    if (pwdNew.length < 8) {
+      setAccountMsg("❌ New password should be at least 8 characters.");
+      return;
+    }
+    setSavingPassword(true);
+    try {
+      // Try common API shapes; backend may implement one of these.
+      try {
+        await apiClient.post(
+          `/users/change-password`,
+          { current_password: pwdCurrent, new_password: pwdNew },
+          { requireAuth: true }
+        );
+      } catch {
+        await apiClient.post(
+          `/users/change_password`,
+          { current_password: pwdCurrent, new_password: pwdNew },
+          { requireAuth: true }
+        );
+      }
+      setAccountMsg("✅ Password updated.");
+      setPwdCurrent("");
+      setPwdNew("");
+      setPwdConfirm("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not change password";
+      setAccountMsg(
+        `❌ ${msg} If this persists, your API may need a change-password endpoint.`
+      );
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!originalUsername) return;
@@ -165,7 +247,93 @@ export default function EditProfilePage() {
           </p>
         </header>
 
-        <div className="rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 sm:p-8 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md">
+        <div className="rounded-3xl border border-[#FFD700]/18 bg-[#120606]/22 p-6 sm:p-8 shadow-[0_18px_55px_rgba(0,0,0,0.18)] backdrop-blur-md space-y-8">
+          <div
+            id="account-email"
+            className="rounded-2xl border border-[#FFD700]/12 bg-[#120606]/28 p-5 space-y-3 scroll-mt-8"
+          >
+            <h2 className="text-lg font-bold text-[#fff3d2]">Email</h2>
+            <p className="text-xs text-[#ffe9b8]/60">
+              Sign-up email. Save updates your account when the backend supports{" "}
+              <code className="text-[#FFD700]/80">PUT /users/me</code>.
+            </p>
+            <input
+              type="email"
+              value={accountEmail}
+              onChange={(e) => {
+                setAccountMsg("");
+                setAccountEmail(e.target.value);
+              }}
+              className="w-full rounded-xl border border-[#FFD700]/20 bg-[#120606]/40 px-4 py-3 text-[#fff3d2] outline-none transition focus:border-[#FFD700]/40 focus:ring-2 focus:ring-[#FFD700]/20"
+            />
+            <button
+              type="button"
+              onClick={handleSaveEmail}
+              disabled={savingEmail}
+              className="rounded-xl border border-[#FFD700]/35 bg-[#120606]/35 px-4 py-2 text-sm font-semibold text-[#fff3d2] hover:bg-[#120606]/50 disabled:opacity-60"
+            >
+              {savingEmail ? "Saving…" : "Save email"}
+            </button>
+          </div>
+
+          <div
+            id="account-password"
+            className="rounded-2xl border border-[#FFD700]/12 bg-[#120606]/28 p-5 space-y-3 scroll-mt-8"
+          >
+            <h2 className="text-lg font-bold text-[#fff3d2]">Password</h2>
+            <p className="text-[10px] font-mono text-[#ffe9b8]/75 break-all">
+              {PASSWORD_HASH_PLACEHOLDER}
+            </p>
+            <p className="text-xs text-[#ffe9b8]/55">
+              Placeholder hash for display only. Your real password hash is never sent to the
+              browser. Use the form below to set a new password if your API exposes a change
+              endpoint.
+            </p>
+            <form onSubmit={handleChangePassword} className="space-y-3 pt-2">
+              <input
+                type="password"
+                value={pwdCurrent}
+                onChange={(e) => setPwdCurrent(e.target.value)}
+                placeholder="Current password"
+                autoComplete="current-password"
+                className="w-full rounded-xl border border-[#FFD700]/20 bg-[#120606]/40 px-4 py-3 text-[#fff3d2] outline-none transition focus:border-[#FFD700]/40 focus:ring-2 focus:ring-[#FFD700]/20"
+              />
+              <input
+                type="password"
+                value={pwdNew}
+                onChange={(e) => setPwdNew(e.target.value)}
+                placeholder="New password"
+                autoComplete="new-password"
+                className="w-full rounded-xl border border-[#FFD700]/20 bg-[#120606]/40 px-4 py-3 text-[#fff3d2] outline-none transition focus:border-[#FFD700]/40 focus:ring-2 focus:ring-[#FFD700]/20"
+              />
+              <input
+                type="password"
+                value={pwdConfirm}
+                onChange={(e) => setPwdConfirm(e.target.value)}
+                placeholder="Confirm new password"
+                autoComplete="new-password"
+                className="w-full rounded-xl border border-[#FFD700]/20 bg-[#120606]/40 px-4 py-3 text-[#fff3d2] outline-none transition focus:border-[#FFD700]/40 focus:ring-2 focus:ring-[#FFD700]/20"
+              />
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className="w-full rounded-xl border border-[#FFD700]/35 bg-[#120606]/35 py-2.5 text-sm font-semibold text-[#fff3d2] hover:bg-[#120606]/50 disabled:opacity-60"
+              >
+                {savingPassword ? "Updating…" : "Update password"}
+              </button>
+            </form>
+          </div>
+
+          {accountMsg ? (
+            <div
+              className={`text-center text-sm rounded-xl px-4 py-3 font-medium ${
+                accountMsg.includes("❌") ? "text-red-400" : "text-green-400"
+              }`}
+            >
+              {accountMsg}
+            </div>
+          ) : null}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div>
@@ -182,7 +350,7 @@ export default function EditProfilePage() {
                 />
               </div>
 
-              <div>
+              <div id="account-username" className="scroll-mt-8">
                 <label className="block mb-2 text-sm font-semibold text-[#ffe9b8]/90">
                   Username
                 </label>
